@@ -1,0 +1,170 @@
+<!-- idea source: The Art of Code https://youtu.be/u5HAYVHsasc?t=898 -->
+
+<!-- a white circle on a black bckground -->
+
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+    <style>
+        body {
+            margin: 0px;
+            overflow: hidden;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="container"></div>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+
+    <script id="vertexShader" type="x-shader/x-vertex">
+        void main()	{
+            gl_Position = vec4( position, 1.0 );
+        }
+    </script>
+
+    <script id="fragmentShader" type="x-shader/x-fragment">
+        uniform float time;
+        uniform vec2 resolution;
+        void main()	{
+            vec2 uv = gl_FragCoord.xy / resolution.xy; // 0 to 1
+
+            // to center the ellipse it's 0.5 in the example
+            // here it needs to be around two-thirds. no idea why.
+            uv -= (2.0/3.0);
+            uv.x *= resolution.x/resolution.y;
+
+            float d = length(uv);
+            float c = d;
+
+            if(d < 0.3) c = 1.0;
+            else c  = 0.0;
+
+            gl_FragColor = vec4(vec3(c), 1.0);
+        }
+    </script>
+    <script>
+        var container;
+        var camera, scene, renderer;
+        var uniforms, material, mesh;
+        var mouseX = 0, mouseY = 0,
+            lat = 0, lon = 0, phy = 0, theta = 0;
+
+        var windowHalfX = window.innerWidth / 2;
+        var windowHalfY = window.innerHeight / 2;
+
+        init();
+        var startTime = Date.now();
+        animate();
+
+        function init() {
+            container = document.getElementById('container');
+
+            // this seems to be a place holder camera and not actually
+            // used since the screen is displaying the material only
+            camera = new THREE.Camera();
+            // can be 0, 1 or 2
+            camera.position.z = 1;
+            scene = new THREE.Scene();
+
+            uniforms = {
+                time: { type: "f", value: 1.0 },
+                resolution: { type: "v2", value: new THREE.Vector2() }
+            };
+
+            material = new THREE.ShaderMaterial({
+                uniforms: uniforms,
+                vertexShader: document.getElementById('vertexShader').textContent,
+                fragmentShader: document.getElementById('fragmentShader').textContent
+            });
+
+            mesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), material);
+            scene.add(mesh);
+
+            renderer = new THREE.WebGLRenderer();
+            renderer.setPixelRatio(window.devicePixelRatio ? window.devicePixelRatio : 1);
+            container.appendChild(renderer.domElement);
+
+            uniforms.resolution.value.x = window.innerWidth;
+            uniforms.resolution.value.y = window.innerHeight;
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            render();
+        }
+
+        function render() {
+            var elapsedMilliseconds = Date.now() - startTime;
+            var elapsedSeconds = elapsedMilliseconds / 1000.;
+            uniforms.time.value = 60. * elapsedSeconds;
+            renderer.render(scene, camera);
+        }
+    </script>
+</body>
+
+</html>
+
+<!--
+Vector length: 
+
+Vector Length in WebGL
+
+In WebGL, the length of a vector refers to its Euclidean distance, which is calculated as the square root of the sum of the squares of its components. For a vector $v(x, y, z)$, the length is computed as $\sqrt{x^2 + y^2 + z^2}$
+
+WebGL uses GLSL (OpenGL Shading Language) for shader programs, and GLSL includes a built-in function `length` that calculates the length of a vector. This function works with vectors of various dimensions, such as `vec2`, `vec3`, and `vec4`, and returns the Euclidean distance of the vector
+
+The `length` function in GLSL is designed to operate on vectors and applies to each component of the vector, returning a single value representing the length of the vector
+
+In summary, the length of a vector in WebGL is the Euclidean distance of its components, and it can be easily calculated using the built-in `length` function in GLSL
+
+Is used for:
+
+The length of a vector is a fundamental concept in computer graphics and is used for a variety of purposes in WebGL. Here are some common applications:
+
+1. **Normalization**:
+   - **Purpose**: To convert a vector into a unit vector (a vector with a length of 1).
+   - **Usage**: Normalization is often required in lighting calculations, where the direction of a vector is important but its magnitude is not. For example, normal vectors in surface shading are typically normalized to ensure consistent lighting results.
+   - **Example**: `vec3 normalizedVector = normalize(v);`
+
+2. **Distance Calculation**:
+   - **Purpose**: To determine the distance between two points in 3D space.
+   - **Usage**: This is useful in collision detection, camera positioning, and other spatial calculations.
+   - **Example**: `float distance = length(a - b);`
+
+3. **Scaling**:
+   - **Purpose**: To scale a vector by a scalar value while maintaining its direction.
+   - **Usage**: This is useful in various transformations, such as moving objects in a scene.
+   - **Example**: `vec3 scaledVector = v * scalar;`
+
+4. **Lighting and Shading**:
+   - **Purpose**: To calculate the intensity of light on a surface.
+   - **Usage**: The length of vectors like the light direction and surface normal is used in various lighting models, such as diffuse and specular lighting.
+   - **Example**: `float diffuse = max(dot(normalize(lightDirection), normalize(surfaceNormal)), 0.0);`
+
+5. **Camera Control**:
+   - **Purpose**: To manage the position and orientation of the camera.
+   - **Usage**: The length of vectors can be used to control the camera's distance from objects or to adjust the field of view.
+   - **Example**: `vec3 cameraPosition = targetPosition + normalize(cameraDirection) * distance;`
+
+6. **Collision Detection**:
+   - **Purpose**: To determine if two objects are within a certain distance of each other.
+   - **Usage**: The length of the vector between the centers of two objects can be compared to their combined radii to detect collisions.
+   - **Example**: `bool collision = length(centerA - centerB) < (radiusA + radiusB);`
+
+7. **Particle Systems**:
+   - **Purpose**: To control the behavior of particles in a particle system.
+   - **Usage**: The length of velocity vectors can be used to determine the speed of particles and to apply forces like gravity or wind.
+   - **Example**: `float speed = length(velocity);`
+
+8. **Physics Simulations**:
+   - **Purpose**: To simulate physical behaviors like gravity, friction, and collisions.
+   - **Usage**: The length of force vectors can be used to apply forces to objects and to calculate their resulting motion.
+   - **Example**: `vec3 acceleration = force / mass;`
+
+In summary, the length of a vector is a versatile tool in WebGL, used for normalization, distance calculation, scaling, lighting, camera control, collision detection, particle systems, and physics simulations.
+
+-->
