@@ -1,0 +1,241 @@
+<!-- source: The Art of Code https://youtu.be/jKuXA0trQPE?list=PLGmrMu-IwbguU_nY2egTFmlg691DN7uE5 -->
+
+<!-- fancy smiley face -->
+
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0" />
+        <style>
+            body {
+                margin: 0px;
+                margin: 0;
+                background-color: #000;
+                color: #fff;
+                font-family: Monospace;
+                font-size: 13px;
+                line-height: 24px;
+                overscroll-behavior: none;
+            }
+        </style>
+        <!-- Upgraded THREE -->
+        <script type="importmap">
+            {
+                "imports": {
+                    "three": "https://cdn.jsdelivr.net/npm/three@0.173.0/build/three.module.js"
+                }
+            }
+        </script>
+        <script type="module">
+            import * as THREE from "three";
+            runExample(THREE);
+        </script>
+    </head>
+
+    <body>
+        <div id="container"></div>
+
+        <script id="vertexShader" type="x-shader/x-vertex">
+            // shadertoy vids don't mention vertex shader
+            void main()	{
+                gl_Position = vec4( position, 1.0 );
+                // from three js examples and also works, no idea why
+                // gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
+            }
+        </script>
+
+        <script id="fragmentShader" type="x-shader/x-fragment">
+            // #defines as shown in vid
+            // these throw errors and, apparently, this type of
+            // define isn't used in webgl.  I'm not a fan of tiny
+            // variable or function names because they make the
+            // code difficult to read and are most often used by
+            // devs who work alone
+            #define s(a, b, t) smoothstep(a, b, t);
+            #define sat(x) clamp(x, 0.0, 1.0);
+
+            uniform float time;
+            uniform vec2 resolution;
+
+            float remap01  ( float a, float b, float t) {
+                return clamp((t-a) / (b-a), 0.0, 1.0);
+            }
+
+            float remap( float a, float b, float c, float d, float t) {
+                return clamp((t-a) / (b-a), 0.0, 1.0)  * (d-c) + c;
+            }
+
+            vec2 within(vec2 uv, vec4 rect) {
+                return (uv-rect.xy)/(rect.zw - rect.xy);
+            }
+
+            vec4 Eye(vec2 uv) {
+                uv -= 0.5;
+                float d = length(uv);
+
+                vec4 irisCol = vec4(0.3, 0.5, 1.0, 1.0);
+                vec4 col = mix(vec4(1.0), irisCol, smoothstep(0.1, 0.7, d) * 0.5);
+
+                // eyeball edge shadow
+                col.rgb *= 1.0 - smoothstep(0.45, 0.5, d) * 0.5 * clamp(-uv.y-uv.x, 0.0, 1.0);
+
+                // black iris outline
+                col.rgb = mix(col.rgb, vec3(0.0), smoothstep(0.3, 0.28, d));
+
+                irisCol.rgb *= 1.0 + smoothstep(0.3, 0.05, d);
+                col.rgb = mix(col.rgb, irisCol.rgb, smoothstep(0.28, 0.25, d));
+
+                // pupils
+                col.rgb = mix(col.rgb, vec3(0.0), smoothstep(0.16, 0.14, d));
+
+                float highlight = smoothstep(0.1, 0.09, length(uv-vec2(-0.15, 0.15)));
+                highlight += smoothstep(0.07, 0.05, length(uv+vec2(-0.08, 0.08)));
+                col.rgb = mix(col.rgb, vec3(1.0), highlight);
+
+                col.a = smoothstep(0.5, 0.48, d);
+                return col;
+            }
+
+            vec4 Mouth(vec2 uv) {
+                uv -= 0.5;
+                vec4 col = vec4(0.5, 0.18, 0.05, 1.0);
+
+                uv.y *= 2.0;
+                uv.x /= 1.2;
+                uv.y -= uv.x*uv.x*2.0;
+                float d = length(uv);
+                col.a = smoothstep(0.5, 0.48, d);
+
+                // teeth
+                float td = length(uv - vec2(0.0, 0.6));
+                vec3 toothCol = vec3(1.0) * smoothstep(0.6, 0.35, d);
+                col.rgb = mix(col.rgb, toothCol, smoothstep(0.4, 0.36, td));
+
+                // tongue
+                float td2 = length(uv + vec2(0.0, 0.5));
+                col.rgb = mix(col.rgb, vec3(1.0, 0.5, 0.5), smoothstep(0.5, 0.2, td2));
+
+                return col;
+            }
+
+            #define sba(a, b, t) smoothstep(a, b, t);
+
+            vec4 Head(vec2 uv) {
+                vec4 col = vec4(0.9, 0.65, 0.1, 1.0);
+
+                float d = length(uv);
+
+                col.a = smoothstep(0.5, 0.49, d);
+
+                float edgeShade = remap01(0.35, 0.5, d);
+                edgeShade *= edgeShade;
+                col.rgb *= (1.0 - edgeShade * 0.5);
+
+                col.rgb = mix(col.rgb, vec3(0.6, 0.3, 0.1), smoothstep(0.47, 0.48, d));
+
+                float highlight = smoothstep(0.41, 0.405, d);
+                highlight *= remap(0.41, 0.1, 0.75, 0.0, uv.y);
+                col.rgb = mix(col.rgb, vec3(1.0), highlight);
+
+                float d2 = length(uv - vec2(0.25, -0.2));
+                float cheek = smoothstep(0.2, 0.01, d2) * 0.4;
+                cheek *= smoothstep(0.17, 0.16, d2);
+                col.rgb = mix(col.rgb, vec3(1.0, 0.1, 0.1), cheek);
+
+                return col;
+            }
+
+            vec4 Smiley(vec2 uv) {
+                vec4 col = vec4(0.0);
+
+                vec4 mouth = Mouth(within(uv, vec4(-0.18, -0.4, 0.2, -0.1)));
+                
+                // mirror one side to the other
+                // should be eyes only but I got two mouths so had to change it
+                uv.x = abs(uv.x);
+
+                vec4 head = Head(uv);
+
+                vec4 eye = Eye(within(uv, vec4(0.03, -0.1, 0.37, 0.25)));
+
+                col = mix(col, head, head.a);
+                col = mix(col, eye, eye.a);
+                col = mix(col, mouth, mouth.a);
+
+                return col;
+            }
+
+            void main()	{
+                vec2 uv = gl_FragCoord.xy / resolution.xy; // 0 to 1
+                uv -= 0.5;
+                uv.x *= resolution.x/resolution.y;
+
+                gl_FragColor = Smiley(uv);
+
+                //gl_FragColor = vec4(uv, 0.5+0.5*sin(time), 1.0);
+            }
+        </script>
+        <script>
+            let runExample = function (THREE) {
+                let container;
+                let camera, scene, renderer;
+                let uniforms, material, mesh;
+
+                init();
+                // not used atm
+                let startTime = Date.now();
+                animate();
+
+                function init() {
+                    container = document.getElementById("container");
+
+                    // a Three.Camera, so not perspective or orthographic and
+                    // this seems to be a place holder camera and not actually
+                    // used since the screen is displaying the shader material only
+                    camera = new THREE.Camera();
+                    // position can be 0, -+1 or -+2 but no larger, no clue why
+                    // since we don't seem to belooking at anything in the scene
+                    // and the shaders render directtly to the canvas
+
+                    scene = new THREE.Scene();
+
+                    uniforms = {
+                        time: { type: "f", value: 1.0 },
+                        resolution: { type: "v2", value: new THREE.Vector2() },
+                    };
+
+                    material = new THREE.ShaderMaterial({
+                        uniforms: uniforms,
+                        vertexShader: document.getElementById("vertexShader").textContent,
+                        fragmentShader: document.getElementById("fragmentShader").textContent,
+                    });
+
+                    // never seen but required, for something to attach a material to?
+                    mesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), material);
+                    scene.add(mesh);
+
+                    renderer = new THREE.WebGLRenderer();
+                    renderer.setPixelRatio( 1 );
+                    renderer.setSize(window.innerWidth, window.innerHeight);
+                    container.appendChild(renderer.domElement);
+
+                    uniforms.resolution.value.x = window.innerWidth;
+                    uniforms.resolution.value.y = window.innerHeight;
+                }
+
+                function animate() {
+                    //requestAnimationFrame(animate);
+                    render();
+                }
+
+                function render() {
+                    let elapsedMilliseconds = Date.now() - startTime;
+                    let elapsedSeconds = elapsedMilliseconds / 1000;
+                    uniforms.time.value = 60 * elapsedSeconds;
+                    renderer.render(scene, camera);
+                }
+            };
+        </script>
+    </body>
+</html>
+
