@@ -1,6 +1,6 @@
-<!-- idea source: The Art of Code https://www.youtube.com/watch?v=GgGBR4z8C9o -->
+<!-- source: The Art of Code https://www.youtube.com/watch?v=GgGBR4z8C9o -->
 
-<!-- from a yellow circle smiley face to a white rectangle -->
+<!-- just a white rectangle -->
 
 <html lang="en">
     <head>
@@ -9,14 +9,21 @@
         <style>
             body {
                 margin: 0px;
-                overflow: hidden;
+                margin: 0;
+                background-color: #000;
+                color: #fff;
+                font-family: Monospace;
+                font-size: 13px;
+                line-height: 24px;
+                overscroll-behavior: none;
             }
         </style>
         <!-- Upgraded THREE -->
         <script type="importmap">
             {
                 "imports": {
-                    "three": "https://cdn.jsdelivr.net/npm/three@0.173.0/build/three.module.js"                }
+                    "three": "https://cdn.jsdelivr.net/npm/three@0.173.0/build/three.module.js"
+                }
             }
         </script>
         <script type="module">
@@ -33,6 +40,8 @@
             // vertex shader but this works to start
             void main()	{
                 gl_Position = vec4( position, 1.0 );
+                // from three js examples and also works, no idea why
+                // gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
             }
         </script>
 
@@ -84,11 +93,11 @@
             void main()	{
                 vec2 uv = gl_FragCoord.xy / resolution.xy; // 0 to 1
 
-                // calculate the center offset location
-                // idk why it's 2/3 here and .5 on shadertoy
-                // my two guesses were screen or plane size
-                // but they have no effect on center loc
-                uv -= 2.0/3.0;
+                // requires
+                // renderer.domElement.width = window.innerWidth;
+                // renderer.domElement.height = window.innerHeight;
+                // to work, otherwise canvas is too large
+                uv -= 0.5;
 
                 uv.x *= resolution.x/resolution.y;
 
@@ -101,7 +110,7 @@
 
                 //mask = Band(uv.x, -0.2, 0.2, 0.01);
                 mask = Rect(uv, -0.2, 0.2, -0.3, 0.3, 0.01 );
-                
+
                 // yellow
                 //col = vec3(1.0, 1.0, 0.0) * mask;
 
@@ -116,17 +125,9 @@
                 let container;
                 let camera, scene, renderer;
                 let uniforms, material, mesh;
-                let mouseX = 0,
-                    mouseY = 0,
-                    lat = 0,
-                    lon = 0,
-                    phy = 0,
-                    theta = 0;
-
-                let windowHalfX = window.innerWidth / 2;
-                let windowHalfY = window.innerHeight / 2;
 
                 init();
+                // not used atm
                 let startTime = Date.now();
                 animate();
 
@@ -136,8 +137,11 @@
                     // this seems to be a place holder camera and not actually
                     // used since the screen is displaying the material only
                     camera = new THREE.Camera();
-                    // can be 0, 1 or 2
+                    // can be 0, 1 or 2 but no larger, no clue why since we don't
+                    // seem to belooking at anything in the scene and the shaders
+                    // render directtly to the canvas
                     camera.position.z = 1;
+
                     scene = new THREE.Scene();
 
                     uniforms = {
@@ -151,16 +155,20 @@
                         fragmentShader: document.getElementById("fragmentShader").textContent,
                     });
 
+                    // never seen but required, for something to attach a material to?
                     mesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), material);
                     scene.add(mesh);
 
                     renderer = new THREE.WebGLRenderer();
-                    renderer.setPixelRatio(window.devicePixelRatio ? window.devicePixelRatio : 1);
+                    // to keep the canvas the same size as the window
+                    // setSize uses devicePixelRatio and it's not
+                    // always appropriate or correct
+                    renderer.setPixelRatio( 1 );
+                    renderer.setSize(window.innerWidth, window.innerHeight);
                     container.appendChild(renderer.domElement);
 
                     uniforms.resolution.value.x = window.innerWidth;
                     uniforms.resolution.value.y = window.innerHeight;
-                    renderer.setSize(window.innerWidth, window.innerHeight);
                 }
 
                 function animate() {

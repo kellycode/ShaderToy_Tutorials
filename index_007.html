@@ -1,4 +1,4 @@
-<!-- idea source: The Art of Code https://www.youtube.com/watch?v=GgGBR4z8C9o -->
+<!-- source: The Art of Code https://www.youtube.com/watch?v=GgGBR4z8C9o -->
 
 <!-- a yellow circle smiley face -->
 
@@ -9,7 +9,6 @@
         <style>
             body {
                 margin: 0px;
-                overflow: hidden;
             }
         </style>
         <!-- Upgraded THREE -->
@@ -33,6 +32,8 @@
             // vertex shader but this works
             void main()	{
                 gl_Position = vec4( position, 1.0 );
+                // from three js examples, works too
+                // gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
             }
         </script>
 
@@ -50,11 +51,11 @@
             void main()	{
                 vec2 uv = gl_FragCoord.xy / resolution.xy; // 0 to 1
 
-                // calculate the center offset location
-                // idk why it's 2/3 here and .5 on shadertoy
-                // my two guesses were screen or plane size
-                // but they have no effect on center loc
-                uv -= 2.0/3.0;
+                // requires
+                // renderer.domElement.width = window.innerWidth;
+                // renderer.domElement.height = window.innerHeight;
+                // to work, otherwise canvas is too large
+                uv -= 0.5;
 
                 uv.x *= resolution.x/resolution.y;
 
@@ -122,12 +123,15 @@
                     scene.add(mesh);
 
                     renderer = new THREE.WebGLRenderer();
-                    renderer.setPixelRatio(window.devicePixelRatio ? window.devicePixelRatio : 1);
+                    //renderer.setPixelRatio(window.devicePixelRatio ? window.devicePixelRatio : 1);
+                    renderer.setSize(window.innerWidth, window.innerHeight);
+                    renderer.domElement.width = window.innerWidth;
+                    renderer.domElement.height = window.innerHeight;
                     container.appendChild(renderer.domElement);
 
                     uniforms.resolution.value.x = window.innerWidth;
                     uniforms.resolution.value.y = window.innerHeight;
-                    renderer.setSize(window.innerWidth, window.innerHeight);
+                    
                 }
 
                 function animate() {
