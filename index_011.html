@@ -1,6 +1,6 @@
-<!-- source: The Art of Code https://www.youtube.com/watch?v=GgGBR4z8C9o -->
+<!-- source: The Art of Code https://youtu.be/jKuXA0trQPE?list=PLGmrMu-IwbguU_nY2egTFmlg691DN7uE5 -->
 
-<!-- just a white rectangle -->
+<!-- rectangle to wavey rectangle with blur on one side -->
 
 <html lang="en">
     <head>
@@ -90,15 +90,18 @@
                 return mask;
             }
 
+            float remap01  ( float a, float b, float t) {
+                return (t-a) / (b-a);
+            }
+
+            float remap  ( float a, float b, float c, float d, float t) {
+                return remap01(a, b, t) * (d-c) + c;
+            }
+
             void main()	{
                 vec2 uv = gl_FragCoord.xy / resolution.xy; // 0 to 1
-
-                // requires
-                // renderer.domElement.width = window.innerWidth;
-                // renderer.domElement.height = window.innerHeight;
-                // to work, otherwise canvas is too large
+                float t = time;
                 uv -= 0.5;
-
                 uv.x *= resolution.x/resolution.y;
 
                 // color
@@ -106,13 +109,17 @@
 
                 float mask = 0.0;
 
-                //float mask = Smiley(uv, vec2(0.0, 0.0), 1.0);
+                float x = uv.x;
 
-                //mask = Band(uv.x, -0.2, 0.2, 0.01);
-                mask = Rect(uv, -0.2, 0.2, -0.3, 0.3, 0.01 );
+                // our time here is fast so slow it down
+                //t = t/20.0;
+                float m = sin((t/20.0) + x * 8.0) * 0.1;
+                float y = uv.y - m;
 
-                // yellow
-                //col = vec3(1.0, 1.0, 0.0) * mask;
+                float blur = remap(-0.5, 0.5, 0.01, 0.25, x);
+                blur = pow(blur, 2.0);
+
+                mask = Rect(vec2(x, y), -0.5, 0.5, -0.1, 0.1, blur );
 
                 // black
                 col = vec3(1.0, 1.0, 1.0) * mask;
@@ -176,7 +183,7 @@
                 function animate() {
                     // continue rendering is not really neded since the shader
                     // only requires one render pass atm
-                    //requestAnimationFrame(animate);
+                    requestAnimationFrame(animate);
                     render();
                 }
 
