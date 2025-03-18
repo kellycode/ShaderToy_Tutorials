@@ -1,6 +1,6 @@
-<!-- source: The Art of Code https://youtu.be/u5HAYVHsasc?t=720 -->
+<!-- source: The Art of Code https://youtu.be/u5HAYVHsasc?t=898 -->
 
-<!-- a white ellipse on a black bckground -->
+<!-- a white circle on a black bckground -->
 
 <html lang="en">
     <head>
@@ -29,10 +29,14 @@
             uniform vec2 resolution;
             void main()	{
                 vec2 uv = gl_FragCoord.xy / resolution.xy; // 0 to 1
-
-                // to center the ellipse, it's 0.5 in the example
-                // here it needs to be around 0.66. no idea why.
+                
+                // requires
+                // renderer.domElement.width = window.innerWidth;
+                // renderer.domElement.height = window.innerHeight;
+                // to work, otherwise canvas is too large
                 uv -= 0.5;
+                uv.x *= resolution.x/resolution.y;
+
                 float d = length(uv);
                 float c = d;
 

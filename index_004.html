@@ -1,6 +1,6 @@
 <!-- source: The Art of Code https://youtu.be/u5HAYVHsasc?t=898 -->
 
-<!-- a white circle on a black bckground -->
+<!-- a white circle on a black bckground with smoothstep anti-aliasing -->
 
 <html lang="en">
     <head>
@@ -29,20 +29,19 @@
             uniform vec2 resolution;
             void main()	{
                 vec2 uv = gl_FragCoord.xy / resolution.xy; // 0 to 1
-                
+
                 // requires
                 // renderer.domElement.width = window.innerWidth;
                 // renderer.domElement.height = window.innerHeight;
                 // to work, otherwise canvas is too large
                 uv -= 0.5;
+                
                 uv.x *= resolution.x/resolution.y;
 
                 float d = length(uv);
-                float c = d;
+                float r = 0.3;
 
-                if(d < 0.3) c = 1.0;
-                else c  = 0.0;
-
+                float c = smoothstep(r, r-0.005, d);
                 gl_FragColor = vec4(vec3(c), 1.0);
             }
         </script>
