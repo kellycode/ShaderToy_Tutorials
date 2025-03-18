@@ -1,0 +1,126 @@
+<!-- source: The Art of Code https://www.youtube.com/watch?v=PBxuVlp7nuM&list=PLGmrMu-IwbguU_nY2egTFmlg691DN7uE5&index=10
+
+ShaderToy Tutorial - The simplest 3D (vid 11)
+
+The playlist goes out of sequence starting at #6 so I'm following the sequence order, not the playlist order
+
+-->
+
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0" />
+        <style>
+            body {
+                margin: 0px;
+                margin: 0;
+                background-color: #000;
+                color: #fff;
+                font-family: Monospace;
+                font-size: 13px;
+                line-height: 24px;
+                overscroll-behavior: none;
+            }
+        </style>
+        <!-- Upgraded THREE -->
+        <script type="importmap">
+            {
+                "imports": {
+                    "three": "https://cdn.jsdelivr.net/npm/three@0.173.0/build/three.module.js"
+                }
+            }
+        </script>
+        <script type="module">
+            import * as THREE from "three";
+            runExample(THREE);
+        </script>
+    </head>
+
+    <body>
+        <div id="container"></div>
+
+        <script id="vertexShader" type="x-shader/x-vertex">
+            // shadertoy vids don't mention vertex shader
+            void main()	{
+                gl_Position = vec4( position, 1.0 );
+                // from three js examples and also works, no idea why
+                // gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
+            }
+        </script>
+
+        <script id="fragmentShader" type="x-shader/x-fragment">
+            uniform float time;
+            uniform vec2 resolution;
+            
+            void main()	{
+                vec2 uv = gl_FragCoord.xy / resolution.xy; // 0 to 1
+                uv -= 0.5;
+                uv.x *= resolution.x/resolution.y;
+
+                gl_FragColor = vec4(uv, 0.5+0.5*sin(time), 1.0);
+            }
+        </script>
+        <script>
+            let runExample = function (THREE) {
+                let container;
+                let camera, scene, renderer;
+                let uniforms, material, mesh;
+
+                init();
+                // not used atm
+                let startTime = Date.now();
+                animate();
+
+                function init() {
+                    container = document.getElementById("container");
+
+                    // a Three.Camera, so not perspective or orthographic and
+                    // this seems to be a place holder camera and not actually
+                    // used since the screen is displaying the shader material only
+                    camera = new THREE.Camera();
+                    // position can be 0, -+1 or -+2 but no larger, no clue why
+                    // since we don't seem to belooking at anything in the scene
+                    // and the shaders render directtly to the canvas
+
+                    scene = new THREE.Scene();
+
+                    uniforms = {
+                        time: { type: "f", value: 1.0 },
+                        resolution: { type: "v2", value: new THREE.Vector2() },
+                    };
+
+                    material = new THREE.ShaderMaterial({
+                        uniforms: uniforms,
+                        vertexShader: document.getElementById("vertexShader").textContent,
+                        fragmentShader: document.getElementById("fragmentShader").textContent,
+                    });
+
+                    // never seen but required, for something to attach a material to?
+                    mesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), material);
+                    scene.add(mesh);
+
+                    renderer = new THREE.WebGLRenderer();
+                    renderer.setPixelRatio( 1 );
+                    renderer.setSize(window.innerWidth, window.innerHeight);
+                    container.appendChild(renderer.domElement);
+
+                    uniforms.resolution.value.x = window.innerWidth;
+                    uniforms.resolution.value.y = window.innerHeight;
+                }
+
+                function animate() {
+                    //requestAnimationFrame(animate);
+                    render();
+                }
+
+                function render() {
+                    let elapsedMilliseconds = Date.now() - startTime;
+                    let elapsedSeconds = elapsedMilliseconds / 1000;
+                    uniforms.time.value = 60 * elapsedSeconds;
+                    renderer.render(scene, camera);
+                }
+            };
+        </script>
+    </body>
+</html>
+
