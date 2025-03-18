@@ -221,6 +221,8 @@
                     renderer = new THREE.WebGLRenderer();
                     renderer.setPixelRatio( 1 );
                     renderer.setSize(window.innerWidth, window.innerHeight);
+                    renderer.domElement.width = window.innerWidth;
+                    renderer.domElement.height = window.innerHeight;
                     container.appendChild(renderer.domElement);
 
                     uniforms.resolution.value.x = window.innerWidth;

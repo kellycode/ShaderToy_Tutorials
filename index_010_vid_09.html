@@ -1,7 +1,8 @@
-<!-- source: The Art of Code https://www.youtube.com/watch?v=PBxuVlp7nuM&list=PLGmrMu-IwbguU_nY2egTFmlg691DN7uE5&index=10
+<!--
 
-ShaderToy Tutorial - The simplest 3D (vid 11)
-Starting with a ray camera and 3D
+source: The Art of Code https://www.youtube.com/watch?v=eKtsY7hYTPg&list=PLGmrMu-IwbguU_nY2egTFmlg691DN7uE5&index=9
+
+ShaderToy LiveCoding - The Drive Home - 1. Basic Setup (vid 9 in the playlist)
 
 The playlist goes out of sequence starting at #6 so I'm following the sequence order, not the playlist order
 
@@ -47,8 +48,52 @@ The playlist goes out of sequence starting at #6 so I'm following the sequence o
             uniform float time;
             uniform vec2 resolution;
 
-            float DistLine(vec3 ro, vec3 rd, vec3 p) {
-                return length(cross(p-ro, rd))/length(rd);
+            struct ray {
+                // origin
+                vec3 o;
+                // direction
+                vec3 d;
+            };
+
+            ray GetRay(vec2 uv, vec3 camPos, vec3 lookAt, float zoom) {
+                // return ray
+                ray a;
+                a.o = camPos;
+
+                // forward
+                vec3 f = normalize(lookAt-camPos);
+                // right
+                vec3 r = cross(vec3(0.0, 1.0, 0.0), f);
+                // camera up
+                vec3 u = cross(f, r);
+
+                // center of the screen
+                vec3 c = a.o + f * zoom;
+                // intersection position
+                vec3 i = c + uv.x * r + uv.y * u;
+
+                a.d = normalize(i-a.o);
+
+                return a;
+            }
+
+            vec3 ClosestPoint(ray r, vec3 p) {
+                return r.o + max(0.0, dot(p-r.o, r.d)) * r.d;
+            }
+
+            float DistRay(ray r, vec3 p) {
+                return length(p - ClosestPoint(r, p));
+            }
+
+            float Bokeh(ray r, vec3 p, float size, float blur) {
+                // distance from ray r to point p
+                float d = DistRay(r, p);
+                // circle
+                float c = smoothstep(size, size*(1.0-blur), d);
+
+                c *= mix(0.6, 1.0, smoothstep(size*0.8, size, d));
+
+                return c;
             }
             
             void main()	{
@@ -56,21 +101,19 @@ The playlist goes out of sequence starting at #6 so I'm following the sequence o
                 uv -= 0.5;
                 uv.x *= resolution.x/resolution.y;
 
-                // ray origin
-                vec3 ro = vec3(0.0, 0.0, -2.0);
-                // ray direction
-                vec3 rd = vec3(uv.x, uv.y, 0.0)-ro;
+                vec3 camPos = vec3(0.0, 0.2, 0.0);
+                vec3 lookAt = vec3(0.0, 0.2, 1.0);
 
-                // animation
-                float t = time/50.0;
+                ray r = GetRay(uv, camPos, lookAt, 2.0);
 
-                vec3 p = vec3(sin(t), 0.0, 1.0 + cos(t));
-                float d = DistLine(ro, rd, p);
+                // test point
+                vec3 p = vec3(0.0, 0.0, 5.0);
 
-                d = smoothstep(0.1, 0.09, d);
+                float c = Bokeh(r, p, 0.3, 0.1);
 
-                gl_FragColor = vec4(d);
+                vec3 col = vec3(1.0, 0.7, 0.1) * c;
 
+                gl_FragColor = vec4(col, 1.0);
                 //gl_FragColor = vec4(uv, 0.5+0.5*sin(time), 1.0);
             }
         </script>
@@ -125,7 +168,7 @@ The playlist goes out of sequence starting at #6 so I'm following the sequence o
                 }
 
                 function animate() {
-                    requestAnimationFrame(animate);
+                    //requestAnimationFrame(animate);
                     render();
                 }
 
