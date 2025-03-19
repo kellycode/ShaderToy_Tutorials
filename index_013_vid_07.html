@@ -1,0 +1,346 @@
+<!--
+
+source: The Art of Code https://www.youtube.com/watch?v=ewu5XrPRgxI&list=PLGmrMu-IwbguU_nY2egTFmlg691DN7uE5&index=7
+
+ShaderToy LiveCoding - The Drive Home - 4. Taillights (vid 7 in the playlist)
+
+-->
+
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0" />
+        <style>
+            body {
+                margin: 0;
+                background-color: #000;
+            }
+        </style>
+        <!-- Upgraded THREE -->
+        <script type="importmap">
+            {
+                "imports": {
+                    "three": "https://cdn.jsdelivr.net/npm/three@0.173.0/build/three.module.js"
+                }
+            }
+        </script>
+        <script type="module">
+            import * as THREE from "three";
+            runExample(THREE);
+        </script>
+    </head>
+
+    <body>
+        <div id="container"></div>
+
+        <script id="vertexShader" type="x-shader/x-vertex">
+            // shadertoy vids don't mention vertex shader
+            void main()	{
+                gl_Position = vec4( position, 1.0 );
+                // from three js examples and also works
+                // gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
+            }
+        </script>
+
+        <script id="fragmentShader" type="x-shader/x-fragment">
+            #define smst(a, b, t) smoothstep(a, b, t)
+
+            // we built our own implementation of the
+            // shadertoy iTime, iResolution and
+            // iMouse javascript implemented below
+            uniform float iTime;
+            uniform vec2 iResolution;
+            uniform vec2 iMouse;
+
+            struct ray {
+                // origin
+                vec3 o;
+                // direction
+                vec3 d;
+            };
+
+            ray GetRay(vec2 uv, vec3 camPos, vec3 lookAt, float zoom) {
+                // return ray
+                ray a;
+                a.o = camPos;
+
+                // forward
+                vec3 f = normalize(lookAt-camPos);
+                // right
+                vec3 r = cross(vec3(0.0, 1.0, 0.0), f);
+                // camera up
+                vec3 u = cross(f, r);
+
+                // center of the screen
+                vec3 c = a.o + f * zoom;
+                // intersection position
+                vec3 i = c + uv.x * r + uv.y * u;
+
+                a.d = normalize(i-a.o);
+
+                return a;
+            }
+
+            vec3 ClosestPoint(ray r, vec3 p) {
+                return r.o + max(0.0, dot(p-r.o, r.d)) * r.d;
+            }
+
+            float DistRay(ray r, vec3 p) {
+                return length(p - ClosestPoint(r, p));
+            }
+
+            float Bokeh(ray r, vec3 p, float size, float blur) {
+
+                // distance from ray r to point p
+                float d = DistRay(r, p);
+
+                // to make Bokehs maintain size
+                size *= length(p);
+
+                // circle
+                float c = smst(size, size*(1.0-blur), d);
+
+                c *= mix(0.6, 1.0, smst(size*0.8, size, d));
+
+                return c;
+            }
+
+            vec3 StreetLights(ray r, float t) {
+                float side = step(r.d.x, 0.0);
+                r.d.x = abs(r.d.x);
+                float s = 0.15;
+                float m = 0.0;
+                for(float i=0.0; i < 1.0; i+=s) {
+                    float ti = fract(t+i+side*s*0.5);
+                    vec3 p = vec3(2.0, 2.0, 100.0 -ti*100.0);
+                    m += Bokeh(r, p, 0.02, 0.1)*ti*ti*ti;
+                }
+                return vec3(1.0, 0.7, 0.1) * m;
+            }
+
+            float Noise(float t) {
+                return fract(sin(t*3456.0)*6547.0);
+            }
+
+            vec3 Taillights(ray r, float t) {
+                
+                
+                t *= 0.5;
+
+                // half the width of the "car"
+                // together are how far apart
+                float w1 = 0.1;
+                float w2 = w1*1.2;
+
+                float s = 1.0/15.0;
+                float m = 0.0;
+
+
+                for(float i=0.0; i < 1.0; i+=s) {
+
+                    float n = Noise(i); // 0 to 1
+                    if(n > 0.5){
+                        continue;
+                    }
+
+                    // n goes from 0 to .5
+                    float lane = step(0.25, n);
+
+                    float ti = fract(t+i);
+                    float z = 100.0 -ti*100.0;
+                    float fade = ti*ti*ti*ti*ti;
+                    float focus = smst(0.9, 1.0, ti);
+
+                    float size = mix(0.02, 0.005, focus);
+
+                    float laneShift = smst(1.0, 0.96, ti);
+                    float x = 1.5 - lane * laneShift;
+
+                    float blink = step(0.0, sin(t*1000.0)) * 7.0 * lane * step(0.85, ti);
+                    m += Bokeh(r, vec3(x-w1, 0.15, z), size, 0.1)*fade;
+                    m += Bokeh(r, vec3(x+w1, 0.15, z), size, 0.1)*fade;
+
+                    m += Bokeh(r, vec3(x-w2, 0.15, z), size, 0.1)*fade;
+                    // far right
+                    m += Bokeh(r, vec3(x+w2, 0.15, z), size, 0.1)*fade*(1.0 + blink);
+
+                    // reflections
+                    float ref = 0.0;
+                    ref += Bokeh(r, vec3(x-w2, -0.15, z), size*2.0, 1.0)*fade;
+                    ref += Bokeh(r, vec3(x+w2, -0.15, z), size*2.0, 1.0)*fade*(1.0 + blink * 0.1);
+
+                    m += ref*focus;
+                }
+                return vec3(1.0, 0.1, 0.03) * m;
+            }
+
+            vec3 Headlights(ray r, float t) {
+
+                t *= 2.0;
+                // half the width of the "car"
+                // together are how far apart
+                float w1 = 0.1;
+                float w2 = w1*1.2;
+
+                float s = 1.0/30.0;
+                float m = 0.0;
+
+
+                for(float i=0.0; i < 1.0; i+=s) {
+
+                    float n = Noise(i);
+                    if(n > 0.1){
+                        continue;
+                    }
+
+
+                    float ti = fract(t+i);
+                    float z = 100.0 -ti*100.0;
+
+                    float focus = smst(0.9, 1.0, ti);
+                    float size = mix(0.02, 0.005, focus);
+
+                    float fade = ti*ti*ti*ti*ti;
+                    m += Bokeh(r, vec3(-1.0-w1, 0.15, z), size, 0.1)*fade;
+                    m += Bokeh(r, vec3(-1.0+w1, 0.15, z), size, 0.1)*fade;
+
+                    m += Bokeh(r, vec3(-1.0-w2, 0.15, z), size, 0.1)*fade;
+                    m += Bokeh(r, vec3(-1.0+w2, 0.15, z), size, 0.1)*fade;
+
+                    float ref = 0.0;
+                    ref += Bokeh(r, vec3(-1.0-w2, -0.15, z), size*2.0, 1.0)*fade;
+                    ref += Bokeh(r, vec3(-1.0+w2, -0.15, z), size*2.0, 1.0)*fade;
+
+                    m += ref*focus;
+                }
+                return vec3(0.9, 0.9, 1.0) * m;
+            }
+
+            void main()	{
+                vec2 uv = gl_FragCoord.xy / iResolution.xy; // 0 to 1
+                uv -= 0.5;
+                uv.x *= iResolution.x/iResolution.y;
+
+                vec2 m = iMouse.xy/iResolution.xy;
+
+                vec3 camPos = vec3(0.5, 0.2, 0.0);
+                vec3 lookAt = vec3(0.5, 0.2, 1.0);
+
+                ray r = GetRay(uv, camPos, lookAt, 2.0);
+
+                // shadertoy iTime seems slower or maybe controlled
+                float t = iTime*0.1+m.x;
+
+                vec3 col = StreetLights(r, t);
+
+                col += Headlights(r, t);
+                col += Taillights(r, t);
+
+                gl_FragColor = vec4(col, 1.0);
+                //gl_FragColor = vec4(uv, 0.5+0.5*sin(iTime), 1.0);
+            }
+        </script>
+        <script>
+            let runExample = function (THREE) {
+                let container;
+                let camera, scene, renderer;
+                let uniforms, material, mesh;
+                let mod = 0;
+                const iMouse = {
+                    x: 0, // Current mouse X position
+                    y: 0, // Current mouse Y position
+                    z: 0, // Mouse click X position
+                    w: 0, // Mouse click Y position
+                    isDown: false, // Track if mouse button is pressed
+                };
+
+                init();
+                // not used atm
+                let startTime = Date.now();
+                animate();
+
+                // building a shadertoy iMouse
+                function setupMouseTracking(element) {
+                    // Update current mouse position
+                    element.addEventListener("mousemove", (event) => {
+                        // Get position relative to the element
+                        const rect = element.getBoundingClientRect();
+                        iMouse.x = event.clientX - rect.left;
+                        iMouse.y = event.clientY - rect.top;
+                    });
+                }
+
+                function init() {
+                    container = document.getElementById("container");
+                    setupMouseTracking(container);
+
+                    // a Three.Camera, so not perspective or orthographic and
+                    // this seems to be a place holder camera and not actually
+                    // used since the screen is displaying the shader material only
+                    camera = new THREE.Camera();
+                    // position can be 0, -+1 or -+2 but no larger, no clue why
+                    // since we don't seem to belooking at anything in the scene
+                    // and the shaders render directtly to the canvas
+
+                    scene = new THREE.Scene();
+
+                    uniforms = {
+                        iTime: { type: "f", value: 1.0 },
+                        // building a shadertoy iResolution
+                        iResolution: { type: "v2", value: new THREE.Vector2() },
+                        // building a shadertoy iMouse
+                        iMouse: { type: "v2", value: new THREE.Vector2() },
+                    };
+
+                    material = new THREE.ShaderMaterial({
+                        uniforms: uniforms,
+                        vertexShader: document.getElementById("vertexShader").textContent,
+                        fragmentShader: document.getElementById("fragmentShader").textContent,
+                    });
+
+                    // never seen but required, for something to attach a material to?
+                    mesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), material);
+                    scene.add(mesh);
+
+                    renderer = new THREE.WebGLRenderer();
+                    renderer.setPixelRatio(1);
+                    renderer.setSize(window.innerWidth, window.innerHeight);
+                    renderer.domElement.width = window.innerWidth;
+                    renderer.domElement.height = window.innerHeight;
+                    container.appendChild(renderer.domElement);
+
+                    uniforms.iResolution.value.x = window.innerWidth;
+                    uniforms.iResolution.value.y = window.innerHeight;
+                    uniforms.iMouse.value.x = 0;
+                    uniforms.iMouse.value.y = 0;
+                }
+
+                function updateShaderUniforms() {
+                    uniforms.iMouse.value.x = iMouse.x;
+                    uniforms.iMouse.value.y = iMouse.y;
+                    mod++;
+                    if(mod === 100) {
+                        //console.log(iMouse);
+                        mod = 0;
+                    }
+                }
+
+                function animate() {
+                    requestAnimationFrame(animate);
+                    render();
+                }
+
+                function render() {
+                    updateShaderUniforms();
+                    let elapsedMilliseconds = Date.now() - startTime;
+                    // slowing things down
+                    let elapsedSeconds = elapsedMilliseconds / 1000;
+                    // shadertoy iTime seems slower or maybe controlled
+                    // so dividing by 200 to slow things down even more
+                    uniforms.iTime.value = (60 * elapsedSeconds)/100;
+                    renderer.render(scene, camera);
+                }
+            };
+        </script>
+    </body>
+</html>
