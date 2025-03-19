@@ -1,8 +1,8 @@
 <!--
 
-source: The Art of Code https://www.youtube.com/watch?v=tdwXMtnuuXg&list=PLGmrMu-IwbguU_nY2egTFmlg691DN7uE5&index=8
+source: The Art of Code https://www.youtube.com/watch?v=gKeT6T_bPEE&list=PLGmrMu-IwbguU_nY2egTFmlg691DN7uE5&index=6
 
-ShaderToy LiveCoding - The Drive Home - 2. Streetlights (vid 8 in the playlist)
+ShaderToy LiveCoding - The Drive Home - 3. Headlights (vid 6 in the playlist)
 
 -->
 
@@ -45,8 +45,12 @@ ShaderToy LiveCoding - The Drive Home - 2. Streetlights (vid 8 in the playlist)
         <script id="fragmentShader" type="x-shader/x-fragment">
             #define s(a, b, t) smoothstep(a, b, t)
 
-            uniform float time;
-            uniform vec2 resolution;
+            // we built our own implementation of the
+            // shadertoy iTime, iResolution and
+            // iMouse javascript implemented below
+            uniform float iTime;
+            uniform vec2 iResolution;
+            uniform vec2 iMouse;
 
             struct ray {
                 // origin
@@ -113,24 +117,47 @@ ShaderToy LiveCoding - The Drive Home - 2. Streetlights (vid 8 in the playlist)
                 }
                 return vec3(1.0, 0.7, 0.1) * m;
             }
-            
-            void main()	{
-                vec2 uv = gl_FragCoord.xy / resolution.xy; // 0 to 1
-                uv -= 0.5;
-                uv.x *= resolution.x/resolution.y;
 
+            vec3 HeadLights(ray r, float t) {
+
+                // half the width of the "car"
+                float w1 = 0.25;
+
+                float s = 0.15;
+                float m = 0.0;
+                for(float i=0.0; i < 1.0; i+=s) {
+                    float ti = fract(t+i);
+                    float z = 100.0 -ti*100.0;
+
+                    float fade = ti*ti*ti;
+                    m += Bokeh(r, vec3(-1.0-w1, 0.15, z), 0.02, 0.1)*fade;
+                    m += Bokeh(r, vec3(-1.0+w1, 0.15, z), 0.02, 0.1)*fade;
+                }
+                return vec3(0.9, 0.9, 1.0) * m;
+            }
+
+            void main()	{
+                vec2 uv = gl_FragCoord.xy / iResolution.xy; // 0 to 1
+                uv -= 0.5;
+                uv.x *= iResolution.x/iResolution.y;
+
+                vec2 m = iMouse.xy/iResolution.xy;
                 vec3 camPos = vec3(0.0, 0.2, 0.0);
                 vec3 lookAt = vec3(0.0, 0.2, 1.0);
 
                 ray r = GetRay(uv, camPos, lookAt, 2.0);
 
-                // shadertoy time seems slower or maybe controlled
-                float t = time/200.0;
+                // last https://youtu.be/gKeT6T_bPEE?list=PLGmrMu-IwbguU_nY2egTFmlg691DN7uE5&t=267
+
+                // shadertoy iTime seems slower or maybe controlled
+                float t = iTime;
 
                 vec3 col = StreetLights(r, t);
 
+                col += HeadLights(r, t);
+
                 gl_FragColor = vec4(col, 1.0);
-                //gl_FragColor = vec4(uv, 0.5+0.5*sin(time), 1.0);
+                //gl_FragColor = vec4(uv, 0.5+0.5*sin(iTime), 1.0);
             }
         </script>
         <script>
@@ -138,14 +165,33 @@ ShaderToy LiveCoding - The Drive Home - 2. Streetlights (vid 8 in the playlist)
                 let container;
                 let camera, scene, renderer;
                 let uniforms, material, mesh;
+                const iMouse = {
+                    x: 0, // Current mouse X position
+                    y: 0, // Current mouse Y position
+                    z: 0, // Mouse click X position
+                    w: 0, // Mouse click Y position
+                    isDown: false, // Track if mouse button is pressed
+                };
 
                 init();
                 // not used atm
                 let startTime = Date.now();
                 animate();
 
+                // building a shadertoy iMouse
+                function setupMouseTracking(element) {
+                    // Update current mouse position
+                    element.addEventListener("mousemove", (event) => {
+                        // Get position relative to the element
+                        const rect = element.getBoundingClientRect();
+                        iMouse.x = event.clientX - rect.left;
+                        iMouse.y = event.clientY - rect.top;
+                    });
+                }
+
                 function init() {
                     container = document.getElementById("container");
+                    setupMouseTracking(container);
 
                     // a Three.Camera, so not perspective or orthographic and
                     // this seems to be a place holder camera and not actually
@@ -158,8 +204,11 @@ ShaderToy LiveCoding - The Drive Home - 2. Streetlights (vid 8 in the playlist)
                     scene = new THREE.Scene();
 
                     uniforms = {
-                        time: { type: "f", value: 1.0 },
-                        resolution: { type: "v2", value: new THREE.Vector2() },
+                        iTime: { type: "f", value: 1.0 },
+                        // building a shadertoy iResolution
+                        iResolution: { type: "v2", value: new THREE.Vector2() },
+                        // building a shadertoy iMouse
+                        iMouse: { type: "v2", value: new THREE.Vector2() },
                     };
 
                     material = new THREE.ShaderMaterial({
@@ -173,14 +222,21 @@ ShaderToy LiveCoding - The Drive Home - 2. Streetlights (vid 8 in the playlist)
                     scene.add(mesh);
 
                     renderer = new THREE.WebGLRenderer();
-                    renderer.setPixelRatio( 1 );
+                    renderer.setPixelRatio(1);
                     renderer.setSize(window.innerWidth, window.innerHeight);
                     renderer.domElement.width = window.innerWidth;
                     renderer.domElement.height = window.innerHeight;
                     container.appendChild(renderer.domElement);
 
-                    uniforms.resolution.value.x = window.innerWidth;
-                    uniforms.resolution.value.y = window.innerHeight;
+                    uniforms.iResolution.value.x = window.innerWidth;
+                    uniforms.iResolution.value.y = window.innerHeight;
+                    uniforms.iMouse.value.x = 0;
+                    uniforms.iMouse.value.y = 0;
+                }
+
+                function updateShaderUniforms() {
+                    uniforms.iMouse.value.x = iMouse.x;
+                    uniforms.iMouse.value.y = iMouse.y;
                 }
 
                 function animate() {
@@ -189,13 +245,16 @@ ShaderToy LiveCoding - The Drive Home - 2. Streetlights (vid 8 in the playlist)
                 }
 
                 function render() {
+                    updateShaderUniforms();
                     let elapsedMilliseconds = Date.now() - startTime;
+                    // slowing things down
                     let elapsedSeconds = elapsedMilliseconds / 1000;
-                    uniforms.time.value = 60 * elapsedSeconds;
+                    // shadertoy iTime seems slower or maybe controlled
+                    // so dividing by 200 to slow things down even more
+                    uniforms.iTime.value = (60 * elapsedSeconds)/200;
                     renderer.render(scene, camera);
                 }
             };
         </script>
     </body>
 </html>
-

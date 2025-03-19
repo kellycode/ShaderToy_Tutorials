@@ -1,4 +1,4 @@
-<!-- source: The Art of Code https://youtu.be/jKuXA0trQPE?list=PLGmrMu-IwbguU_nY2egTFmlg691DN7uE5 -->
+<!-- source: The Art of Code https://www.youtube.com/watch?v=ZlNnrpM0TRg&list=PLGmrMu-IwbguU_nY2egTFmlg691DN7uE5&index=5 -->
 
 <!-- fancy smiley face -->
 
@@ -46,13 +46,11 @@
 
         <script id="fragmentShader" type="x-shader/x-fragment">
 
-            // #defines as shown in vid - unused
-            // these throw errors when used and apparently this
-            // type of define isn't used in webgl.  Also, tiny
-            // variable and function names make code difficult
-            // to follow and debug
-            #define s(a, b, t) smoothstep(a, b, t);
-            #define sat(x) clamp(x, 0.0, 1.0);
+            // #defines were throwing errors so I didn't use them
+            // but I found out it was because I was declaring them
+            // with a semi-colon at the end - not used here anyway
+            #define s(a, b, t) smoothstep(a, b, t)
+            #define sat(x) clamp(x, 0.0, 1.0)
 
             uniform float time;
             uniform vec2 resolution;
