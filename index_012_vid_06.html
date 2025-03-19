@@ -43,7 +43,7 @@ ShaderToy LiveCoding - The Drive Home - 3. Headlights (vid 6 in the playlist)
         </script>
 
         <script id="fragmentShader" type="x-shader/x-fragment">
-            #define s(a, b, t) smoothstep(a, b, t)
+            #define smst(a, b, t) smoothstep(a, b, t)
 
             // we built our own implementation of the
             // shadertoy iTime, iResolution and
@@ -98,9 +98,9 @@ ShaderToy LiveCoding - The Drive Home - 3. Headlights (vid 6 in the playlist)
                 size *= length(p);
 
                 // circle
-                float c = s(size, size*(1.0-blur), d);
+                float c = smst(size, size*(1.0-blur), d);
 
-                c *= mix(0.6, 1.0, s(size*0.8, size, d));
+                c *= mix(0.6, 1.0, smst(size*0.8, size, d));
 
                 return c;
             }
@@ -118,20 +118,46 @@ ShaderToy LiveCoding - The Drive Home - 3. Headlights (vid 6 in the playlist)
                 return vec3(1.0, 0.7, 0.1) * m;
             }
 
+            float Noise(float t) {
+                return fract(sin(t*3456.0)*6547.0);
+            }
+
             vec3 HeadLights(ray r, float t) {
 
                 // half the width of the "car"
                 float w1 = 0.25;
+                float w2 = w1*1.2;
 
-                float s = 0.15;
+                float s = 1.0/30.0;
                 float m = 0.0;
+
+
                 for(float i=0.0; i < 1.0; i+=s) {
+
+                    float n = Noise(i);
+                    if(n > 0.1){
+                        continue;
+                    }
+
+
                     float ti = fract(t+i);
                     float z = 100.0 -ti*100.0;
 
-                    float fade = ti*ti*ti;
-                    m += Bokeh(r, vec3(-1.0-w1, 0.15, z), 0.02, 0.1)*fade;
-                    m += Bokeh(r, vec3(-1.0+w1, 0.15, z), 0.02, 0.1)*fade;
+                    float focus = smst(0.9, 1.0, ti);
+                    float size = mix(0.02, 0.005, focus);
+
+                    float fade = ti*ti*ti*ti*ti;
+                    m += Bokeh(r, vec3(-1.0-w1, 0.15, z), size, 0.1)*fade;
+                    m += Bokeh(r, vec3(-1.0+w1, 0.15, z), size, 0.1)*fade;
+
+                    m += Bokeh(r, vec3(-1.0-w2, 0.15, z), size, 0.1)*fade;
+                    m += Bokeh(r, vec3(-1.0+w2, 0.15, z), size, 0.1)*fade;
+
+                    float ref = 0.0;
+                    ref += Bokeh(r, vec3(-1.0-w2, -0.15, z), size*2.0, 1.0)*fade;
+                    ref += Bokeh(r, vec3(-1.0+w2, -0.15, z), size*2.0, 1.0)*fade;
+
+                    m += ref*focus;
                 }
                 return vec3(0.9, 0.9, 1.0) * m;
             }
@@ -142,15 +168,14 @@ ShaderToy LiveCoding - The Drive Home - 3. Headlights (vid 6 in the playlist)
                 uv.x *= iResolution.x/iResolution.y;
 
                 vec2 m = iMouse.xy/iResolution.xy;
+
                 vec3 camPos = vec3(0.0, 0.2, 0.0);
                 vec3 lookAt = vec3(0.0, 0.2, 1.0);
 
                 ray r = GetRay(uv, camPos, lookAt, 2.0);
 
-                // last https://youtu.be/gKeT6T_bPEE?list=PLGmrMu-IwbguU_nY2egTFmlg691DN7uE5&t=267
-
                 // shadertoy iTime seems slower or maybe controlled
-                float t = iTime;
+                float t = iTime*0.1+m.x;
 
                 vec3 col = StreetLights(r, t);
 
@@ -165,6 +190,7 @@ ShaderToy LiveCoding - The Drive Home - 3. Headlights (vid 6 in the playlist)
                 let container;
                 let camera, scene, renderer;
                 let uniforms, material, mesh;
+                let mod = 0;
                 const iMouse = {
                     x: 0, // Current mouse X position
                     y: 0, // Current mouse Y position
@@ -237,6 +263,11 @@ ShaderToy LiveCoding - The Drive Home - 3. Headlights (vid 6 in the playlist)
                 function updateShaderUniforms() {
                     uniforms.iMouse.value.x = iMouse.x;
                     uniforms.iMouse.value.y = iMouse.y;
+                    mod++;
+                    if(mod === 100) {
+                        //console.log(iMouse);
+                        mod = 0;
+                    }
                 }
 
                 function animate() {
@@ -251,7 +282,7 @@ ShaderToy LiveCoding - The Drive Home - 3. Headlights (vid 6 in the playlist)
                     let elapsedSeconds = elapsedMilliseconds / 1000;
                     // shadertoy iTime seems slower or maybe controlled
                     // so dividing by 200 to slow things down even more
-                    uniforms.iTime.value = (60 * elapsedSeconds)/200;
+                    uniforms.iTime.value = (60 * elapsedSeconds)/100;
                     renderer.render(scene, camera);
                 }
             };
